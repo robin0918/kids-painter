@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎨 小小画家 - 儿童绘画游戏</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&display=swap">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=Zcool+KuaiLe&display=swap');
+        
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+        }
+        
+        .kid-font {
+            font-family: 'Zcool KuaiLe', cursive;
+        }
+        
+        .rainbow-bg {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 25%, #fad0c4 50%, #a18cd1 75%, #fbc2eb 100%);
+            background-size: 400% 400%;
+            animation: rainbow 15s ease infinite;
+        }
+        
+        @keyframes rainbow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .tool-btn {
+            transition: all 0.2s;
+        }
+        
+        .tool-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .color-swatch {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .color-swatch:hover {
+            transform: scale(1.2);
+        }
+        
+        .color-swatch.active {
+            transform: scale(1.3);
+            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+        }
+        
+        canvas {
+            cursor: crosshair;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .fun-btn {
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .sticker {
+            font-size: 3rem;
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+        
+        .progress-ring {
+            transition: stroke-dashoffset 0.5s;
+        }
+        
+        .gallery-img {
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .gallery-img:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body class="rainbow-bg min-h-screen">
+    <!-- Header -->
+    <header class="py-6 text-center">
+        <div class="max-w-4xl mx-auto px-4">
+            <h1 class="text-5xl font-black kid-font mb-4 text-white drop-shadow-lg">
+                🎨 小小画家
+            </h1>
+            <p class="text-xl text-white/90 font-bold">
+                适合小朋友的绘画游戏 🎮
+            </p>
+        </div>
+    </header>
+    
+    <!-- Main Canvas -->
+    <main class="max-w-6xl mx-auto px-4 pb-12">
+        <!-- Tools Panel -->
+        <div class="bg-white/90 backdrop-blur rounded-3xl p-6 mb-8 shadow-xl">
+            <div class="flex flex-wrap gap-4 justify-center items-center">
+                <!-- Brush Size -->
+                <div class="flex items-center gap-2 bg-pink-100 rounded-full px-4 py-2">
+                    <span class="text-2xl">🖌️</span>
+                    <input type="range" id="brushSize" min="2" max="50" value="10" 
+                           class="w-32 accent-pink-500">
+                    <span id="brushSizeLabel" class="font-bold text-pink-600">10px</span>
+                </div>
+                
+                <!-- Colors -->
+                <div class="flex flex-wrap gap-2 bg-purple-100 rounded-full px-4 py-2">
+                    <span class="text-sm font-bold text-purple-600 mr-2">🎨 颜色：</span>
+                    <div class="color-swatch active" style="background: #ff6b6b;" data-color="#ff6b6b"></div>
+                    <div class="color-swatch" style="background: #ffa502;" data-color="#ffa502"></div>
+                    <div class="color-swatch" style="background: #ffd93d;" data-color="#ffd93d"></div>
+                    <div class="color-swatch" style="background: #6bcb77;" data-color="#6bcb77"></div>
+                    <div class="color-swatch" style="background: #4d96ff;" data-color="#4d96ff"></div>
+                    <div class="color-swatch" style="background: #9b59b6;" data-color="#9b59b6"></div>
+                    <div class="color-swatch" style="background: #ffffff;" data-color="#ffffff" title="橡皮擦"></div>
+                    <div class="color-swatch" style="background: #2d3436;" data-color="#2d3436"></div>
+                </div>
+                
+                <!-- Tools -->
+                <div class="flex gap-2 bg-blue-100 rounded-full px-4 py-2">
+                    <button onclick="setTool('brush')" class="tool-btn text-3xl bg-white rounded-full w-12 h-12 hover:bg-yellow-200" title="画笔">🖌️</button>
+                    <button onclick="setTool('eraser')" class="tool-btn text-3xl bg-white rounded-full w-12 h-12 hover:bg-gray-200" title="橡皮擦">🧹</button>
+                    <button onclick="fillCanvas()" class="tool-btn text-3xl bg-white rounded-full w-12 h-12 hover:bg-green-200" title="填色">🪣</button>
+                    <button onclick="drawStamp('⭐')" class="tool-btn text-3xl bg-white rounded-full w-12 h-12 hover:bg-yellow-100" title="星星">⭐</button>
+                    <button onclick="drawStamp('❤️')" class="tool-btn text-3xl bg-white rounded-full w-12 h-12 hover:bg-red-100" title="爱心">❤️</button>
+                    <button onclick="drawStamp('🌈')" class="tool-btn text-3xl bg-white rounded-full w-12 h-12 hover:bg-purple-100" title="彩虹">🌈</button>
+                    <button onclick="drawStamp('🦄')" class="tool-btn text-3xl bg-white rounded-full w-12 h-12 hover:bg-pink-100" title="独角兽">🦄</button>
+                </div>
+                
+                <!-- Actions -->
+                <div class="flex gap-2 bg-green-100 rounded-full px-4 py-2">
+                    <button onclick="undo()" class="tool-btn text-3xl bg-white rounded-full w-12 h-12 hover:bg-yellow-200" title="撤销">↩️</button>
+                    <button onclick="redo()" class="tool-btn text-3xl bg-white rounded-full w-12 h-12 hover:bg-yellow-200" title="重做">↪️</button>
+                    <button onclick="clearCanvas()" class="tool-btn text-3xl bg-white rounded-full w-12 h-12 hover:bg-red-200" title="清空">🗑️</button>
+                    <button onclick="saveCanvas()" class="tool-btn text-3xl bg-white rounded-full w-12 h-12 hover:bg-green-200" title="保存">💾</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Canvas -->
+        <div class="text-center mb-8">
+            <canvas id="drawingCanvas" width="900" height="600" class="bg-white mx-auto"></canvas>
+        </div>
+        
+        <!-- Templates Section -->
+        <section class="bg-white/90 backdrop-blur rounded-3xl p-8 mb-8 shadow-xl">
+            <h2 class="text-3xl font-bold mb-6 text-center kid-font">
+                <span class="text-4xl mr-2">🖼️</span>
+                趣味模板 - 点击开始画画！
+            </h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div onclick="loadTemplate('rainbow')" class="gallery-img bg-gradient-to-br from-red-400 to-yellow-400 rounded-2xl p-6 text-center cursor-pointer">
+                    <div class="text-6xl mb-3">🌈</div>
+                    <h3 class="font-bold text-white text-lg">彩虹房子</h3>
+                    <p class="text-white/70 text-sm mt-1">简单有趣</p>
+                </div>
+                <div onclick="loadTemplate('animal')" class="gallery-img bg-gradient-to-br from-green-400 to-blue-400 rounded-2xl p-6 text-center cursor-pointer">
+                    <div class="text-6xl mb-3">🦁</div>
+                    <h3 class="font-bold text-white text-lg">动物园</h3>
+                    <p class="text-white/70 text-sm mt-1">动物朋友</p>
+                </div>
+                <div onclick="loadTemplate('space')" class="gallery-img bg-gradient-to-br from-purple-400 to-pink-400 rounded-2xl p-6 text-center cursor-pointer">
+                    <div class="text-6xl mb-3">🚀</div>
+                    <h3 class="font-bold text-white text-lg">太空探险</h3>
+                    <p class="text-white/70 text-sm mt-1">星际旅行</p>
+                </div>
+                <div onclick="loadTemplate('ocean')" class="gallery-img bg-gradient-to-br from-blue-400 to-cyan-400 rounded-2xl p-6 text-center cursor-pointer">
+                    <div class="text-6xl mb-3">🐠</div>
+                    <h3 class="font-bold text-white text-lg">海底世界</h3>
+                    <p class="text-white/70 text-sm mt-1">海洋生物</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Avatar Maker -->
+        <section class="bg-gradient-to-r from-pink-400 to-purple-500 rounded-3xl p-8 mb-8 shadow-xl">
+            <h2 class="text-3xl font-bold mb-6 text-center text-white kid-font">
+                <span class="text-4xl mr-2">👤</span>
+                头像生成器 - 制作专属头像！
+            </h2>
+            <div class="flex flex-wrap gap-8 justify-center items-center">
+                <div class="bg-white/20 backdrop-blur rounded-2xl p-6 text-center">
+                    <canvas id="avatarCanvas" width="300" height="300" class="bg-white rounded-xl mb-4 mx-auto"></canvas>
+                    <p class="text-white font-bold mb-4">画一个头像</p>
+                    <button onclick="generateRandomAvatar()" class="fun-btn bg-white text-purple-600 px-6 py-3 rounded-full font-bold hover:bg-yellow-200 transition">
+                        🎲 随机生成
+                    </button>
+                </div>
+                <div class="flex flex-col gap-4">
+                    <button onclick="downloadAvatar('avatar')" class="bg-white text-pink-600 px-8 py-4 rounded-2xl font-bold text-lg hover:bg-yellow-200 transition shadow-lg">
+                        💾 保存头像
+                    </button>
+                    <button onclick="downloadAvatar('wallpaper')" class="bg-white text-blue-600 px-8 py-4 rounded-2xl font-bold text-lg hover:bg-green-200 transition shadow-lg">
+                        🖼️ 保存壁纸
+                    </button>
+                    <button onclick="downloadAvatar('sticker')" class="bg-white text-orange-600 px-8 py-4 rounded-2xl font-bold text-lg hover:bg-purple-200 transition shadow-lg">
+                        ⬜ 保存贴纸
+                    </button>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Fun Stamps Gallery -->
+        <section class="bg-white/90 backdrop-blur rounded-3xl p-8 shadow-xl">
+            <h2 class="text-3xl font-bold mb-6 text-center kid-font">
+                <span class="text-4xl mr-2">✨</span>
+                趣味贴纸 - 点击添加到画布！
+            </h2>
+            <div class="flex flex-wrap gap-4 justify-center">
+                <button onclick="addSticker('🌟')" class="sticker bg-yellow-100 rounded-xl p-4 hover:bg-yellow-200 transition">🌟</button>
+                <button onclick="addSticker('💖')" class="sticker bg-pink-100 rounded-xl p-4 hover:bg-pink-200 transition">💖</button>
+                <button onclick="addSticker('🦋')" class="sticker bg-purple-100 rounded-xl p-4 hover:bg-purple-200 transition">🦋</button>
+                <button onclick="addSticker('🍀')" class="sticker bg-green-100 rounded-xl p-4 hover:bg-green-200 transition">🍀</button>
+                <button onclick="addSticker('🌸')" class="sticker bg-pink-100 rounded-xl p-4 hover:bg-pink-200 transition">🌸</button>
+                <button onclick="addSticker('🌻')" class="sticker bg-yellow-100 rounded-xl p-4 hover:bg-yellow-200 transition">🌻</button>
+                <button onclick="addSticker('🎀')" class="sticker bg-red-100 rounded-xl p-4 hover:bg-red-200 transition">🎀</button>
+                <button onclick="addSticker('🎈')" class="sticker bg-blue-100 rounded-xl p-4 hover:bg-blue-200 transition">🎈</button>
+                <button onclick="addSticker('🍎')" class="sticker bg-red-100 rounded-xl p-4 hover:bg-red-200 transition">🍎</button>
+                <button onclick="addSticker('🍕')" class="sticker bg-orange-100 rounded-xl p-4 hover:bg-orange-200 transition">🍕</button>
+                <button onclick="addSticker('🚗')" class="sticker bg-blue-100 rounded-xl p-4 hover:bg-blue-200 transition">🚗</button>
+                <button onclick="addSticker('⛵')" class="sticker bg-cyan-100 rounded-xl p-4 hover:bg-cyan-200 transition">⛵</button>
+            </div>
+        </section>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="text-center py-8 text-white/70">
+        <p class="kid-font text-2xl">🎨 快乐绘画，快乐成长！🌟</p>
+        <p class="text-sm mt-2">适合 3-12 岁小朋友 👧👦</p>
+    </footer>
+    
+    <script>
+        // Canvas Setup
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        const avatarCanvas = document.getElementById('avatarCanvas');
+        const avatarCtx = avatarCanvas.getContext('2d');
+        
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let currentTool = 'brush';
+        let currentColor = '#ff6b6b';
+        let brushSize = 10;
+        let history = [];
+        let historyIndex = -1;
+        
+        // Initialize
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        saveState();
+        
+        // Drawing Functions
+        function startDrawing(e) {
+            isDrawing = true;
+            [lastX, lastY] = getCoords(e);
+            
+            if (currentTool === 'stamp') {
+                drawStamp(currentStamp);
+            }
+        }
+        
+        function draw(e) {
+            if (!isDrawing || currentTool === 'stamp') return;
+            
+            const [x, y] = getCoords(e);
+            
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.strokeStyle = currentTool === 'eraser' ? 'white' : currentColor;
+            ctx.lineWidth = currentTool === 'eraser' ? brushSize * 2 : brushSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+            
+            [lastX, lastY] = [x, y];
+        }
+        
+        function stopDrawing() {
+            if (isDrawing) {
+                isDrawing = false;
+                saveState();
+            }
+        }
+        
+        function getCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            return [e.clientX - rect.left, e.clientY - rect.top];
+        }
+        
+        // Event Listeners
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+        
+        // Touch support
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            startDrawing({ clientX: touch.clientX, clientY: touch.clientY });
+        });
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            draw({ clientX: touch.clientX, clientY: touch.clientY });
+        });
+        canvas.addEventListener('touchend', stopDrawing);
+        
+        // Tools
+        function setTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('ring-4', 'ring-yellow-400');
+            });
+        }
+        
+        function fillCanvas() {
+            ctx.fillStyle = currentColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            saveState();
+        }
+        
+        // Colors
+        document.querySelectorAll('.color-swatch').forEach(swatch => {
+            swatch.addEventListener('click', () => {
+                document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+                swatch.classList.add('active');
+                currentColor = swatch.dataset.color;
+                if (currentColor === '#ffffff') {
+                    currentTool = 'eraser';
+                } else {
+                    currentTool = 'brush';
+                }
+            });
+        });
+        
+        // Brush Size
+        document.getElementById('brushSize').addEventListener('input', (e) => {
+            brushSize = e.target.value;
+            document.getElementById('brushSizeLabel').textContent = brushSize + 'px';
+        });
+        
+        // Stamps
+        let currentStamp = '⭐';
+        function drawStamp(stamp) {
+            const rect = canvas.getBoundingClientRect();
+            const x = rect.width / 2;
+            const y = rect.height / 2;
+            
+            ctx.font = '80px Arial';
+            ctx.fillText(stamp, x - 40, y + 30);
+            saveState();
+        }
+        
+        function addSticker(stamp) {
+            ctx.font = '60px Arial';
+            ctx.fillText(stamp, Math.random() * (canvas.width - 100) + 50, Math.random() * (canvas.height - 100) + 50);
+            saveState();
+        }
+        
+        // History
+        function saveState() {
+            historyIndex++;
+            history = history.slice(0, historyIndex);
+            history.push(canvas.toDataURL());
+        }
+        
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                loadState(history[historyIndex]);
+            }
+        }
+        
+        function redo() {
+            if (historyIndex < history.length - 1) {
+                historyIndex++;
+                loadState(history[historyIndex]);
+            }
+        }
+        
+        function loadState(dataUrl) {
+            const img = new Image();
+            img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+            };
+            img.src = dataUrl;
+        }
+        
+        function clearCanvas() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            saveState();
+        }
+        
+        // Save
+        function saveCanvas() {
+            const link = document.createElement('a');
+            link.download = '我的画作-' + Date.now() + '.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        
+        // Templates
+        function loadTemplate(type) {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#87ceeb';
+            ctx.fillRect(0, 0, canvas.width, 300);
+            
+            ctx.fillStyle = '#90ee90';
+            ctx.fillRect(0, 300, canvas.width, 300);
+            
+            ctx.font = '30px Arial';
+            ctx.fillStyle = '#333';
+            ctx.textAlign = 'center';
+            ctx.fillText('开始画画吧！', canvas.width/2, canvas.height/2);
+            ctx.textAlign = 'left';
+            
+            saveState();
+        }
+        
+        // Avatar Generator
+        function generateRandomAvatar() {
+            avatarCtx.fillStyle = 'white';
+            avatarCtx.fillRect(0, 0, 300, 300);
+            
+            // Random background
+            const colors = ['#ff6b6b', '#ffa502', '#6bcb77', '#4d96ff', '#9b59b6'];
+            avatarCtx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+            avatarCtx.beginPath();
+            avatarCtx.arc(150, 150, 140, 0, Math.PI * 2);
+            avatarCtx.fill();
+            
+            // Face
+            avatarCtx.fillStyle = '#ffdbac';
+            avatarCtx.beginPath();
+            avatarCtx.arc(150, 160, 80, 0, Math.PI * 2);
+            avatarCtx.fill();
+            
+            // Eyes
+            avatarCtx.fillStyle = '#333';
+            avatarCtx.beginPath();
+            avatarCtx.arc(120, 140, 15, 0, Math.PI * 2);
+            avatarCtx.arc(180, 140, 15, 0, Math.PI * 2);
+            avatarCtx.fill();
+            
+            // Smile
+            avatarCtx.strokeStyle = '#333';
+            avatarCtx.lineWidth = 5;
+            avatarCtx.beginPath();
+            avatarCtx.arc(150, 170, 40, 0.1 * Math.PI, 0.9 * Math.PI);
+            avatarCtx.stroke();
+            
+            // Random features
+            const features = ['👶', '😊', '😎', '🥰', '😄'];
+            const feature = features[Math.floor(Math.random() * features.length)];
+            avatarCtx.font = '100px Arial';
+            avatarCtx.fillText(feature, 100, 220);
+        }
+        
+        function downloadAvatar(format) {
+            let link;
+            if (format === 'avatar') {
+                link = document.createElement('a');
+                link.download = '我的头像-' + Date.now() + '.png';
+                link.href = avatarCanvas.toDataURL();
+            } else if (format === 'wallpaper') {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = 1920;
+                tempCanvas.height = 1080;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                tempCtx.fillStyle = '#667eea';
+                tempCtx.fillRect(0, 0, 1920, 1080);
+                tempCtx.drawImage(avatarCanvas, 810, 390, 300, 300);
+                
+                tempCtx.font = 'bold 60px Arial';
+                tempCtx.fillStyle = 'white';
+                tempCtx.textAlign = 'center';
+                tempCtx.fillText('🎨 小小画家作品', 960, 800);
+                
+                link = document.createElement('a');
+                link.download = '我的壁纸-' + Date.now() + '.png';
+                link.href = tempCanvas.toDataURL();
+            } else {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = 500;
+                tempCanvas.height = 500;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(avatarCanvas, 100, 100, 300, 300);
+                
+                link = document.createElement('a');
+                link.download = '我的贴纸-' + Date.now() + '.png';
+                link.href = tempCanvas.toDataURL();
+            }
+            link.click();
+        }
+        
+        // Initialize avatar
+        generateRandomAvatar();
+    </script>
+</body>
+</html>
