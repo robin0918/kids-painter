@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🎨 小小画家 - 全屏手势绘画</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&display=swap">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=Zcool+KuaiLe&display=swap');
@@ -14,6 +14,8 @@
         body {
             font-family: 'Noto Sans SC', sans-serif;
             overflow: hidden;
+            margin: 0;
+            padding: 0;
         }
         
         #fullscreenCanvas {
@@ -24,6 +26,7 @@
             height: 100vh;
             z-index: 1;
             cursor: none;
+            background: white;
         }
         
         #gestureCanvas {
@@ -94,9 +97,47 @@
         #videoElement {
             display: none;
         }
+        
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .kid-font {
+            font-family: 'Zcool KuaiLe', cursive;
+        }
     </style>
 </head>
 <body class="bg-gray-900">
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="text-center text-white">
+            <div class="text-6xl mb-4 animate-bounce">📷</div>
+            <h2 class="text-2xl font-bold kid-font">正在启动摄像头...</h2>
+            <p class="mt-2">请允许浏览器访问摄像头</p>
+        </div>
+    </div>
+    
+    <!-- Error Message -->
+    <div id="errorMessage" class="fixed inset-0 bg-black/90 flex items-center justify-center z-index: 2000 hidden">
+        <div class="bg-white rounded-3xl p-8 max-w-md text-center">
+            <div class="text-6xl mb-4">😢</div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">摄像头启动失败</h2>
+            <p id="errorText" class="text-gray-600 mb-6"></p>
+            <button onclick="retryCamera()" class="bg-blue-500 text-white px-8 py-3 rounded-full font-bold hover:bg-blue-600">
+                🔄 重试
+            </button>
+            <button onclick="useMouseMode()" class="bg-gray-500 text-white px-8 py-3 rounded-full font-bold hover:bg-gray-600 ml-4">
+                🖱️ 使用鼠标模式
+            </button>
+        </div>
+    </div>
+    
     <!-- Main Canvas (Full Screen) -->
     <canvas id="fullscreenCanvas"></canvas>
     
@@ -117,7 +158,7 @@
             
             <!-- Color Selection -->
             <div class="flex flex-wrap gap-2 justify-center mb-4">
-                <div class="color-btn w-10 h-10 rounded-full cursor-pointer active" style="background: #ff6b6b;" data-color="#ff6b6b"></div>
+                <div class="color-btn w-10 h-10 rounded-full cursor-pointer ring-4 ring-yellow-400" style="background: #ff6b6b;" data-color="#ff6b6b"></div>
                 <div class="color-btn w-10 h-10 rounded-full cursor-pointer" style="background: #ffa502;" data-color="#ffa502"></div>
                 <div class="color-btn w-10 h-10 rounded-full cursor-pointer" style="background: #ffd93d;" data-color="#ffd93d"></div>
                 <div class="color-btn w-10 h-10 rounded-full cursor-pointer" style="background: #6bcb77;" data-color="#6bcb77"></div>
@@ -164,7 +205,7 @@
     </div>
     
     <!-- Video Preview (Gesture Detection) -->
-    <video id="videoElement" autoplay playsinline></video>
+    <video id="videoElement" autoplay playsinline muted></video>
     <canvas id="gestureCanvas"></canvas>
     
     <!-- Gesture Indicator -->
@@ -201,6 +242,9 @@
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            // Fill white background
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
@@ -217,13 +261,11 @@
         let lastY = 0;
         
         // Gesture state
-        let hands;
-        let camera;
+        let hands = null;
+        let camera = null;
         let prevGesture = null;
         
-        // Initialize white background
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Initialize history
         saveState();
         
         // Mouse Mode
@@ -238,7 +280,7 @@
             const touch = e.touches[0];
             const rect = canvas.getBoundingClientRect();
             lastX = touch.clientX - rect.left;
-            lastY = touch.clientY - rect.startY;
+            lastY = touch.clientY - rect.top;
             isDrawing = true;
         });
         
@@ -284,8 +326,25 @@
         }
         
         // Mode Switching
-        function setMode(mode) {
-            currentMode = mode;
+        async function setMode(mode) {
+            if (mode === 'gesture') {
+                // Show loading
+                document.getElementById('loadingOverlay').classList.remove('hidden');
+                
+                try {
+                    await startGestureDetection();
+                    currentMode = 'gesture';
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                } catch (error) {
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    showError(error.message);
+                    return;
+                }
+            } else {
+                stopGestureDetection();
+                currentMode = 'mouse';
+            }
+            
             document.getElementById('mouseModeBtn').classList.toggle('active', mode === 'mouse');
             document.getElementById('gestureModeBtn').classList.toggle('active', mode === 'gesture');
             
@@ -293,12 +352,10 @@
                 document.getElementById('gestureHelp').classList.remove('hidden');
                 document.getElementById('modeIndicator').classList.remove('hidden');
                 document.getElementById('gestureCanvas').style.display = 'block';
-                startGestureDetection();
             } else {
                 document.getElementById('gestureHelp').classList.add('hidden');
                 document.getElementById('modeIndicator').classList.add('hidden');
                 document.getElementById('gestureCanvas').style.display = 'none';
-                stopGestureDetection();
             }
         }
         
@@ -364,6 +421,12 @@
         function setStamp(stamp) {
             currentStamp = stamp;
             closeStickerBar();
+            
+            // Draw stamp in center
+            ctx.font = '100px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(stamp, canvas.width/2, canvas.height/2);
+            saveState();
             showGesture(stamp);
         }
         
@@ -380,38 +443,76 @@
             }, 1000);
         }
         
+        // Error handling
+        function showError(message) {
+            document.getElementById('errorText').textContent = message;
+            document.getElementById('errorMessage').classList.remove('hidden');
+        }
+        
+        function retryCamera() {
+            document.getElementById('errorMessage').classList.add('hidden');
+            setMode('gesture');
+        }
+        
+        function useMouseMode() {
+            document.getElementById('errorMessage').classList.add('hidden');
+            setMode('mouse');
+        }
+        
         // Gesture Detection using MediaPipe Hands
-        function startGestureDetection() {
-            hands = new Hands({
-                locateFile: (file) => {
-                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`;
+        async function startGestureDetection() {
+            return new Promise((resolve, reject) => {
+                try {
+                    // Check if Hands is available
+                    if (typeof Hands === 'undefined') {
+                        throw new Error('手势识别库加载失败，请刷新页面重试');
+                    }
+                    
+                    hands = new Hands({
+                        locateFile: (file) => {
+                            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`;
+                        }
+                    });
+                    
+                    hands.setOptions({
+                        maxNumHands: 1,
+                        modelComplexity: 1,
+                        minDetectionConfidence: 0.5,
+                        minTrackingConfidence: 0.5
+                    });
+                    
+                    hands.onResults(onGestureResults);
+                    
+                    // Check if Camera is available
+                    if (typeof Camera === 'undefined') {
+                        throw new Error('摄像头库加载失败，请刷新页面重试');
+                    }
+                    
+                    camera = new Camera(document.getElementById('videoElement'), {
+                        onFrame: async () => {
+                            await hands.send({ image: document.getElementById('videoElement') });
+                        },
+                        width: 640,
+                        height: 480
+                    });
+                    
+                    camera.start().then(() => {
+                        resolve();
+                    }).catch(error => {
+                        reject(new Error('无法访问摄像头，请确保已授予摄像头权限'));
+                    });
+                } catch (error) {
+                    reject(error);
                 }
             });
-            
-            hands.setOptions({
-                maxNumHands: 1,
-                modelComplexity: 1,
-                minDetectionConfidence: 0.7,
-                minTrackingConfidence: 0.7
-            });
-            
-            hands.onResults(onGestureResults);
-            
-            camera = new Camera(document.getElementById('videoElement'), {
-                onFrame: async () => {
-                    await hands.send({ image: document.getElementById('videoElement') });
-                },
-                width: 640,
-                height: 480
-            });
-            
-            camera.start();
         }
         
         function stopGestureDetection() {
             if (camera) {
                 camera.stop();
+                camera = null;
             }
+            hands = null;
         }
         
         function onGestureResults(results) {
@@ -531,12 +632,6 @@
                     document.getElementById('stickerBar').classList.remove('hidden');
                     break;
             }
-            
-            // Continue drawing with peace sign
-            if (gesture === 'peace' && isDrawing) {
-                const indexTip = landmarks[8];
-                drawAt(indexTip.x * canvas.width, indexTip.y * canvas.height);
-            }
         }
         
         // Draw continuously while peace sign is detected
@@ -548,15 +643,6 @@
                 }
             }
         }, 50);
-        
-        // Kid font style
-        const style = document.createElement('style');
-        style.textContent = `
-            .kid-font {
-                font-family: 'Zcool KuaiLe', cursive;
-            }
-        `;
-        document.head.appendChild(style);
     </script>
 </body>
 </html>
